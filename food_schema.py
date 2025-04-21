@@ -1,5 +1,7 @@
 class FoodItem:
-    def __init__(self, name, calories, unit="克", protein=None, fat=None, carbs=None):
+    def __init__(
+        self, name, calories, unit="克", protein=None, fat=None, carbs=None, quantity=1
+    ):
         self.name = name
         self.calories = calories  # 每单位热量(千卡)
         self.unit = unit

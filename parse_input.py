@@ -70,7 +70,8 @@ def parse_food_item(item_text):
 
 
 def parse_multiple_food(input_text):
-    """计算多种食品的热量"""
+    """计算多种食品的热量
+    output: [(food_name, quantity, unit), ...]"""
     # 使用常见分隔符分割输入
     output = []
     food_items = re.split(r"[,，、和及与\s]+", input_text)
@@ -94,6 +95,6 @@ def parse_multiple_food(input_text):
 
 if __name__ == "__main__":
     # 测试代码
-    test_input = "10个鸡块，2杯米饭，半份沙拉"
+    test_input = "10坨鸡块，2杯米饭，半份沙拉"
     result = parse_multiple_food(test_input)
     print(result)  # 输出解析结果
