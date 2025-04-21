@@ -87,7 +87,7 @@ def parse_multiple_food(input_text):
         quantity, unit, food_name = parse_food_item(item)
 
         if food_name is None:
-            continue
+            raise ValueError(f"无法解析食品项: {item}")
         else:
             output.append((food_name, quantity, unit))
     return output
