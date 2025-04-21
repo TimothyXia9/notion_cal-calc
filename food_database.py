@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import os
-from food_schema import FoodItem
+from FoodItem import FoodItem
 
 
 class LocalFoodDatabase:
@@ -70,8 +70,36 @@ class LocalFoodDatabase:
         self.conn.commit()
         return self.cursor.rowcount > 0
 
+    def delete_food_item(self, name):
+        if self.get_food_item(name):
+            self.cursor.execute("DELETE FROM food_items WHERE name=?", (name,))
+            self.conn.commit()
+            return True
+        else:
+            return False
+
+    def get_all_food_items(self):
+        self.cursor.execute(
+            "SELECT name, calories, unit, protein, fat, carbs, notion_id FROM food_items"
+        )
+        results = self.cursor.fetchall()
+        food_items = []
+        for result in results:
+            food = FoodItem(
+                name=result[0],
+                calories=result[1],
+                unit=result[2],
+                protein=result[3],
+                fat=result[4],
+                carbs=result[5],
+            )
+            food.notion_id = result[6]
+            food_items.append(food)
+        return food_items
+
     def get_food_item(self, name, unit=None):
-        """根据名称和可选单位获取食物信息"""
+        """根据名称和可选单位获取食物信息
+        return : FoodItem or None"""
         if unit:
             # 如果提供了单位，同时匹配名称和单位
             self.cursor.execute(
@@ -131,3 +159,21 @@ class LocalFoodDatabase:
     def close(self):
         """关闭数据库连接"""
         self.conn.close()
+
+
+if __name__ == "__main__":
+    db = LocalFoodDatabase()
+    db.add_food_item(
+        FoodItem(
+            name="鸡肉",
+            calories=239,
+            unit="克",
+            protein=27,
+            fat=14,
+            carbs=0,
+        )
+    )
+    print(db.get_food_item("鸡肉"))
+    print(db.get_all_food_items())
+    db.delete_food_item("鸡肉")
+    print(db.get_all_food_items())
