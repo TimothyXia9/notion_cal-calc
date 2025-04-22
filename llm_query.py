@@ -1,3 +1,4 @@
+import re
 import requests
 import json
 import os
@@ -35,76 +36,110 @@ class LLMService:
             print(f"LLM API调用失败: {response.status_code}")
             return None
 
-    def get_food_nutrition(self, food_name, unit):
+    def get_food_nutrition(self, food_items):
+        """return: [FoodItem, ...]"""
         prompt = f"""
-        请分析以下食物的营养信息，并**仅**返回JSON格式的结果：
-        
-        食物名称：{food_name}
-        
-        请估算该食物每单位的以下营养成分，并严格按照以下JSON格式返回：
-        
+        请根据以下食物名称和单位，返回每种食物的营养信息。
+        {food_items}
+        请严格按照以下JSON格式返回，不要添加其他文本或解释：
+
         {{
-          "name": "食物名称",
-          "calories": 每{unit}热量(千卡),
-          "unit": "{unit}",
-          "protein": 蛋白质含量(克),
-          "fat": 脂肪含量(克),
-          "carbs": 碳水化合物含量(克)
+        "items": [
+            {{
+            "name": "食物1",
+            "calories": 按照每给出的单位计算的热量(千卡)如果单位为"克"则给出每克的热量,
+            "unit": "单位",
+            "protein": 蛋白质含量(克),
+            "fat": 脂肪含量(克),
+            "carbs": 碳水化合物含量(克),
+            "grams": 按照给出的单位换算为等量重量(克)
+            }},
+            {{
+            "name": "食物2",
+            "calories": 按照每给出的单位计算的热量(千卡)如果单位为"克"则给出每克的热量,
+            "unit": "单位",
+            "protein": 蛋白质含量(克),
+            "fat": 脂肪含量(克),
+            "carbs": 碳水化合物含量(克),
+            "grams": 按照给出的单位换算为等量重量(克)
+            }}
+        ]
         }}
-        
+
         确保返回的是一个有效的JSON对象，所有数值应该是数字而非字符串。
-        如果某些营养成分无法确定，可以返回null。
         """
-
-        result_text = self.query_llm(prompt)
+        result_text = LLMService().query_llm(prompt)
         try:
-            # 尝试解析JSON
-            nutrition_data = json.loads(result_text)
+            food_nutrition = json.loads(result_text)
+            food_nutrition_items = food_nutrition.get("items", [])
+            food_nutrition_list = []
+            for item in food_nutrition_items:
+                food_item = FoodItem(
+                    name=item.get("name"),
+                    calories=item.get("calories"),
+                    unit=item.get("unit"),
+                    protein=item.get("protein"),
+                    fat=item.get("fat"),
+                    carbs=item.get("carbs"),
+                    grams=item.get("grams") if item.get("unit") != "克" else 1,
+                )
+                food_nutrition_list.append(food_item)
+            return food_nutrition_list
 
-            # 创建食物对象
-            food_item = FoodItem(
-                name=nutrition_data["name"],
-                calories=nutrition_data["calories"],
-                unit=nutrition_data["unit"],
-                protein=nutrition_data["protein"],
-                fat=nutrition_data["fat"],
-                carbs=nutrition_data["carbs"],
-            )
-            return food_item
         except json.JSONDecodeError:
             print(f"解析JSON失败: {result_text}")
             return None
 
-    def parse_multiple_food(self, food_description):
-        """解析多个食物描述，返回食物名称、数量和单位的列表
-
-        return: [(食物名称, 数量, 单位), ...], [FoodItem, ...]"""
+    def get_name_quantity_unit(self, food_description):
+        """return: [(食物名称, 数量, 单位), ...]"""
         food_items = []
-        prompt1 = f"""
-            
+        prompt = f"""
             请根据以下食物描述提取食物名称、数量和单位，返回JSON格式的结果：
             {food_description}
-            请严格按照以下JSON格式返回，不要添加其他文本或解释，若无法确定quantity，请返回1,若无法确定unit，请返回"个":
-            
+
+            请按照以下规则提取：
+            1. 数量词（如"一个"、"两碗"、"10个"）应分解为数字和单位
+            2. 食物名称不应包含数量词，但应保留其他描述性形容词
+            3. 例如："一个去皮的鸡腿" → 数量=1, 单位=个, 名称="去皮的鸡腿"
+            4. 例如："三碗卤肉饭" → 数量=3, 单位=碗, 名称="卤肉饭"
+            5. 例如："两个巨无霸" → 数量=2, 单位=个, 名称="巨无霸"
+
+            请严格按照以下JSON格式返回，不要添加其他文本或解释：
+
             {{
-            "items": [{{"name": "食物名1", "quantity": 数量, "unit": "单位"}},
-                    {{"name": "食物名2", "quantity": 数量, "unit": "单位"}}]
+            "items": [
+                {{"name": "食物名称(不含数量词)", "quantity": 数量, "unit": "单位"}},
+                {{"name": "食物名称(不含数量词)", "quantity": 数量, "unit": "单位"}}
+            ]
             }}
+
+            若无法确定quantity，请返回1
+            若无法确定unit，请返回"个"
             """
 
-        result_text1 = LLMService().query_llm(prompt1)
+        result_text = LLMService().query_llm(prompt)
         try:
-            food_data = json.loads(result_text1)
+            food_data = json.loads(result_text)
             items = food_data.get("items", [])
             for item in items:
                 name = item.get("name")
-                quantity = item.get("quantity", 1)  # 默认数量为1
-                unit = item.get("unit", "个")  # 默认单位为"个"
+                quantity = item.get("quantity", 1)
+                unit = item.get("unit", "个")
                 food_items.append((name, quantity, unit))
+            return food_items
         except json.JSONDecodeError:
-            print(f"解析JSON失败: {result_text1}")
+            print(f"解析JSON失败: {result_text}")
+            return None
+
+        # def parse_multiple_food(self, food_description, get_nutrition=True):
+        """解析多个食物描述，返回食物名称、数量和单位的列表
+
+        return: [(食物名称, 数量, 单位), ...], [FoodItem, ...]"""
+        food_items = self.get_name_quantity_unit(food_description)
+        if not get_nutrition:
+            return food_items, None
         if food_items:
-            prompt2 = f"""
+            prompt = f"""
             请根据以下食物名称、数量和单位，返回每种食物的营养信息。
             {food_items}
             请严格按照以下JSON格式返回，不要添加其他文本或解释：
@@ -113,7 +148,7 @@ class LLMService:
             "items": [
                 {{
                 "name": "食物1",
-                "calories": 按照每{{unit}}计算的热量(千卡),
+                "calories": 按照每给出的单位计算的热量(千卡),
                 "unit": "单位",
                 "protein": 蛋白质含量(克),
                 "fat": 脂肪含量(克),
@@ -121,7 +156,7 @@ class LLMService:
                 }},
                 {{
                 "name": "食物2",
-                "calories": 按照每{{unit}}计算的热量(千卡),
+                "calories": 按照每给出的单位计算的热量(千卡),
                 "unit": "单位",
                 "protein": 蛋白质含量(克),
                 "fat": 脂肪含量(克),
@@ -132,9 +167,10 @@ class LLMService:
 
             确保返回的是一个有效的JSON对象，所有数值应该是数字而非字符串。
             """
-            result_text2 = LLMService().query_llm(prompt2)
+            result_text = LLMService().query_llm(prompt)
+
             try:
-                food_nutrition = json.loads(result_text2)
+                food_nutrition = json.loads(result_text)
                 food_nutrition_items = food_nutrition.get("items", [])
                 food_nutrition_list = []
                 for item in food_nutrition_items:
@@ -150,8 +186,8 @@ class LLMService:
                 return food_items, food_nutrition_list
 
             except json.JSONDecodeError:
-                print(f"解析JSON失败: {result_text2}")
-            return None
+                print(f"解析JSON失败: {result_text}")
+                return None
 
 
 if __name__ == "__main__":
@@ -167,6 +203,7 @@ if __name__ == "__main__":
     #     print(f"碳水化合物: {food_item.carbs}克")
     # else:
     #     print("未能获取食物信息")
-    food_description = "10个鸡块，一个巨无霸，三碗卤肉饭"
+    # food_description = "10个鸡块，两个巨无霸，三碗卤肉饭,一个去皮的鸡腿"
+    food_description = "两个巨无霸"
     food_items, nut_l = llm_service.parse_multiple_food(food_description)
     print(f"解析结果: {food_items, nut_l}")

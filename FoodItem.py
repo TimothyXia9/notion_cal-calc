@@ -1,11 +1,14 @@
 class FoodItem:
-    def __init__(self, name, calories, unit="克", protein=None, fat=None, carbs=None):
+    def __init__(
+        self, name, calories, unit="克", protein=None, fat=None, carbs=None, grams=None
+    ):
         self.name = name
         self.calories = calories  # 每单位热量(千卡)
         self.unit = unit
         self.protein = protein  # 蛋白质(克)
         self.fat = fat  # 脂肪(克)
         self.carbs = carbs  # 碳水(克)
+        self.grams = grams
         self.notion_id = None  # Notion页面ID
 
     def __str__(self):
@@ -36,5 +39,8 @@ class FoodItem:
 
         if self.notion_id is not None:
             food_dict["notion_id"] = self.notion_id
+
+        if self.grams is not None:
+            food_dict["grams"] = self.grams
 
         return food_dict

@@ -1,7 +1,9 @@
 import sqlite3
 import json
 import os
+from threading import local
 from FoodItem import FoodItem
+import notion
 
 
 class LocalFoodDatabase:
@@ -22,6 +24,7 @@ class LocalFoodDatabase:
             protein REAL,
             fat REAL, 
             carbs REAL,
+            grams REAL,
             notion_id TEXT
         )
         """
@@ -33,8 +36,8 @@ class LocalFoodDatabase:
         try:
             self.cursor.execute(
                 """INSERT INTO food_items 
-                   (name, calories, unit, protein, fat, carbs, notion_id) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (name, calories, unit, protein, fat, carbs, grams, notion_id) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     food_item.name,
                     food_item.calories,
@@ -42,6 +45,7 @@ class LocalFoodDatabase:
                     food_item.protein,
                     food_item.fat,
                     food_item.carbs,
+                    food_item.grams,
                     food_item.notion_id,
                 ),
             )
@@ -55,7 +59,7 @@ class LocalFoodDatabase:
         """更新食物信息"""
         self.cursor.execute(
             """UPDATE food_items SET 
-               calories=?, unit=?, protein=?, fat=?, carbs=?, notion_id=?
+               calories=?, unit=?, protein=?, fat=?, carbs=?, grams=?, notion_id=?
                WHERE name=?""",
             (
                 food_item.calories,
@@ -64,6 +68,7 @@ class LocalFoodDatabase:
                 food_item.fat,
                 food_item.carbs,
                 food_item.notion_id,
+                food_item.grams,
                 food_item.name,
             ),
         )
@@ -79,8 +84,9 @@ class LocalFoodDatabase:
             return False
 
     def get_all_food_items(self):
+        """return:  [FoodItem...]"""
         self.cursor.execute(
-            "SELECT name, calories, unit, protein, fat, carbs, notion_id FROM food_items"
+            "SELECT name, calories, unit, protein, fat, carbs, grams, notion_id FROM food_items"
         )
         results = self.cursor.fetchall()
         food_items = []
@@ -92,8 +98,9 @@ class LocalFoodDatabase:
                 protein=result[3],
                 fat=result[4],
                 carbs=result[5],
+                grams=result[6],
             )
-            food.notion_id = result[6]
+            food.notion_id = result[7]
             food_items.append(food)
         return food_items
 
@@ -103,13 +110,13 @@ class LocalFoodDatabase:
         if unit:
             # 如果提供了单位，同时匹配名称和单位
             self.cursor.execute(
-                "SELECT name, calories, unit, protein, fat, carbs, notion_id FROM food_items WHERE name=? AND unit=?",
+                "SELECT name, calories, unit, protein, fat, carbs, grams, notion_id FROM food_items WHERE name=? AND unit=?",
                 (name, unit),
             )
         else:
             # 如果没有提供单位，只匹配名称
             self.cursor.execute(
-                "SELECT name, calories, unit, protein, fat, carbs, notion_id FROM food_items WHERE name=?",
+                "SELECT name, calories, unit, protein, fat, carbs, grams, notion_id FROM food_items WHERE name=?",
                 (name,),
             )
 
@@ -122,8 +129,9 @@ class LocalFoodDatabase:
                 protein=result[3],
                 fat=result[4],
                 carbs=result[5],
+                grams=result[6],
             )
-            food.notion_id = result[6]
+            food.notion_id = result[7]
             return food
         return None
 
@@ -160,6 +168,28 @@ class LocalFoodDatabase:
         """关闭数据库连接"""
         self.conn.close()
 
+    def clear_database(self):
+        """清空数据库"""
+        self.cursor.execute("DELETE FROM food_items")
+        self.conn.commit()
+        self.close()
+
+    def sync_database(self):
+        """向notion同步数据库"""
+        from notion import Notion
+
+        notion = Notion()
+        notion_food_items = notion.get_all_food_items()
+        local_food_items = self.get_all_food_items()
+        for food_item in local_food_items:
+            if food_item.name not in [item.name for item in notion_food_items]:
+                # 如果本地数据库中有食物，但Notion中没有，则从本地删除
+                self.delete_food_item(food_item.name)
+        for food_item in notion_food_items:
+            if food_item.name not in [item.name for item in local_food_items]:
+                # 如果Notion中有食物，但本地数据库中没有，则添加到本地数据库
+                self.add_food_item(food_item)
+
 
 if __name__ == "__main__":
     db = LocalFoodDatabase()
@@ -171,6 +201,7 @@ if __name__ == "__main__":
             protein=27,
             fat=14,
             carbs=0,
+            grams=100,
         )
     )
     print(db.get_food_item("鸡肉"))

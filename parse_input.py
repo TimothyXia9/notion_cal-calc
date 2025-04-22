@@ -5,6 +5,7 @@ import re
 chinese_digit_map = {
     "一": 1,
     "二": 2,
+    "两": 2,
     "三": 3,
     "四": 4,
     "五": 5,
@@ -30,9 +31,7 @@ def parse_food_item(item_text):
     # 例如：10个鸡块、一个汉堡、半份沙拉
 
     # 尝试匹配阿拉伯数字
-    arab_match = re.match(
-        r"(\d+)([个|杯|碗|份|块|片|克|g|千克|kg]*)\s*(.+)", item_text.strip()
-    )
+    arab_match = re.match(r"(\d+)([个杯碗份块片克g千克kg]*)\s*(.+)", item_text.strip())
     if arab_match:
         quantity = int(arab_match.group(1))
         unit = arab_match.group(2) if arab_match.group(2) else "个"  # 默认单位
@@ -41,10 +40,11 @@ def parse_food_item(item_text):
 
     # 尝试匹配中文数字
     chinese_match = re.match(
-        r"([一二三四五六七八九十半]+)([个|杯|碗|份|块|片|克|g|千克|kg]*)\s*(.+)",
+        r"([一二两三四五六七八九十半]+)([个杯碗份块片克g千克kg]*)\s*(.+)",
         item_text.strip(),
     )
     if chinese_match:
+
         chinese_num = chinese_match.group(1)
         quantity = convert_chinese_num(chinese_num)
         if quantity is None:
@@ -55,9 +55,7 @@ def parse_food_item(item_text):
 
     # 如果没有指定数量，默认为1
     # 尝试仅匹配食品名
-    food_only_match = re.match(
-        r"([个|杯|碗|份|块|片|克|g|千克|kg]*)\s*(.+)", item_text.strip()
-    )
+    food_only_match = re.match(r"([个杯碗份块片克g千克kg]*)\s*(.+)", item_text.strip())
     if food_only_match:
         quantity = 1
         unit = (
@@ -65,12 +63,14 @@ def parse_food_item(item_text):
         )  # 默认单位
         food_name = food_only_match.group(2).strip()
         return quantity, unit, food_name
-
+    raise ValueError(
+        f"无法解析食品项: {item_text}，请检查输入格式。"
+    )  # 如果都不匹配，抛出异常
     return None, None, None
 
 
 def parse_multiple_food(input_text):
-    """计算多种食品的热量
+    """
     output: [(food_name, quantity, unit), ...]"""
     # 使用常见分隔符分割输入
     output = []
@@ -95,6 +95,7 @@ def parse_multiple_food(input_text):
 
 if __name__ == "__main__":
     # 测试代码
-    test_input = "10坨鸡块，2杯米饭，半份沙拉"
-    result = parse_multiple_food(test_input)
-    print(result)  # 输出解析结果
+    # test_input = "10坨鸡块，2杯米饭，半份沙拉"
+    # result = parse_multiple_food(test_input)
+    # print(result)  # 输出解析结果
+    print(parse_food_item("两个巨无霸"))  # 测试单个食品项解析
