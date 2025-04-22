@@ -1,9 +1,5 @@
 import sqlite3
-import json
-import os
-from threading import local
 from FoodItem import FoodItem
-import notion
 
 
 class LocalFoodDatabase:
@@ -18,7 +14,7 @@ class LocalFoodDatabase:
             """
         CREATE TABLE IF NOT EXISTS food_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE,
+            name TEXT,
             calories REAL,
             unit TEXT,
             protein REAL,
@@ -75,7 +71,13 @@ class LocalFoodDatabase:
         self.conn.commit()
         return self.cursor.rowcount > 0
 
-    def delete_food_item(self, name):
+    def delete_food_item(self, name, notion_id=None):
+        if notion_id:
+            self.cursor.execute(
+                "DELETE FROM food_items WHERE name=? AND notion_id=?", (name, notion_id)
+            )
+            self.conn.commit()
+            return True
         if self.get_food_item(name):
             self.cursor.execute("DELETE FROM food_items WHERE name=?", (name,))
             self.conn.commit()
@@ -120,6 +122,27 @@ class LocalFoodDatabase:
                 (name,),
             )
 
+        result = self.cursor.fetchone()
+        if result:
+            food = FoodItem(
+                name=result[0],
+                calories=result[1],
+                unit=result[2],
+                protein=result[3],
+                fat=result[4],
+                carbs=result[5],
+                grams=result[6],
+            )
+            food.notion_id = result[7]
+            return food
+        return None
+
+    def get_food_item_by_id(self, food_item: FoodItem):
+        """根据ID获取食物信息"""
+        self.cursor.execute(
+            "SELECT name, calories, unit, protein, fat, carbs, grams, notion_id FROM food_items WHERE notion_id=?",
+            (food_item.notion_id,),
+        )
         result = self.cursor.fetchone()
         if result:
             food = FoodItem(
@@ -182,29 +205,43 @@ class LocalFoodDatabase:
         notion_food_items = notion.get_all_food_items()
         local_food_items = self.get_all_food_items()
         for food_item in local_food_items:
-            if food_item.name not in [item.name for item in notion_food_items]:
+            if food_item.notion_id not in [
+                item.notion_id for item in notion_food_items
+            ]:
                 # 如果本地数据库中有食物，但Notion中没有，则从本地删除
-                self.delete_food_item(food_item.name)
+                self.delete_food_item(food_item.name, food_item.notion_id)
         for food_item in notion_food_items:
-            if food_item.name not in [item.name for item in local_food_items]:
+            if food_item.notion_id not in [item.notion_id for item in local_food_items]:
                 # 如果Notion中有食物，但本地数据库中没有，则添加到本地数据库
                 self.add_food_item(food_item)
 
 
 if __name__ == "__main__":
     db = LocalFoodDatabase()
-    db.add_food_item(
-        FoodItem(
-            name="鸡肉",
-            calories=239,
-            unit="克",
-            protein=27,
-            fat=14,
-            carbs=0,
-            grams=100,
-        )
-    )
-    print(db.get_food_item("鸡肉"))
-    print(db.get_all_food_items())
-    db.delete_food_item("鸡肉")
+    # db.delete_food_item("鸡肉")
+    # food1 = FoodItem(
+    #     name="鸡肉",
+    #     calories=239,
+    #     unit="克",
+    #     protein=27,
+    #     fat=14,
+    #     carbs=0,
+    #     grams=100,
+    # )
+    # food1.notion_id = "111"
+    # db.add_food_item(food1)
+    # print(db.get_all_food_items())
+
+    # print("-----------------")
+    # food2 = FoodItem(
+    #     name="鸡肉",
+    #     calories=11111,
+    #     unit="克",
+    #     protein=27,
+    #     fat=14,
+    #     carbs=0,
+    #     grams=100,
+    # )
+    # food2.notion_id = "222"
+    # print(db.add_food_item(food2))
     print(db.get_all_food_items())

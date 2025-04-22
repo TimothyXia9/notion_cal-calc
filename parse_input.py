@@ -27,46 +27,44 @@ def convert_chinese_num(chinese_str):
 
 def parse_food_item(item_text):
     """解析单个食品项"""
-    # 匹配模式：数字+单位+食品名 或 中文数字+单位+食品名
-    # 例如：10个鸡块、一个汉堡、半份沙拉
+    item_text = item_text.strip()
 
-    # 尝试匹配阿拉伯数字
-    arab_match = re.match(r"(\d+)([个杯碗份块片克g千克kg]*)\s*(.+)", item_text.strip())
-    if arab_match:
-        quantity = int(arab_match.group(1))
-        unit = arab_match.group(2) if arab_match.group(2) else "个"  # 默认单位
-        food_name = arab_match.group(3).strip()
-        return quantity, unit, food_name
+    # 匹配阿拉伯数字或中文数字
+    quantity_match = re.match(r"^([0-9一二两三四五六七八九十半]+)(.*)", item_text)
 
-    # 尝试匹配中文数字
-    chinese_match = re.match(
-        r"([一二两三四五六七八九十半]+)([个杯碗份块片克g千克kg]*)\s*(.+)",
-        item_text.strip(),
-    )
-    if chinese_match:
+    if quantity_match:
+        # 提取数量
+        quantity_str = quantity_match.group(1)
+        remainder = quantity_match.group(2).strip()
 
-        chinese_num = chinese_match.group(1)
-        quantity = convert_chinese_num(chinese_num)
-        if quantity is None:
-            return None, None, None
-        unit = chinese_match.group(2) if chinese_match.group(2) else "个"  # 默认单位
-        food_name = chinese_match.group(3).strip()
-        return quantity, unit, food_name
-
-    # 如果没有指定数量，默认为1
-    # 尝试仅匹配食品名
-    food_only_match = re.match(r"([个杯碗份块片克g千克kg]*)\s*(.+)", item_text.strip())
-    if food_only_match:
+        # 转换数量
+        if quantity_str.isdigit():
+            quantity = int(quantity_str)
+        else:
+            quantity = convert_chinese_num(quantity_str)
+            if quantity is None:
+                raise ValueError(f"无法解析数量: {quantity_str}")
+    else:
+        # 如果没有指定数量，默认为1
         quantity = 1
-        unit = (
-            food_only_match.group(1) if food_only_match.group(1) else "个"
-        )  # 默认单位
-        food_name = food_only_match.group(2).strip()
-        return quantity, unit, food_name
-    raise ValueError(
-        f"无法解析食品项: {item_text}，请检查输入格式。"
-    )  # 如果都不匹配，抛出异常
-    return None, None, None
+        remainder = item_text
+
+    # 匹配单位
+    unit_match = re.match(r"^([个杯碗份块片克g千克kg包]+)(.*)", remainder)
+
+    if unit_match:
+        unit = unit_match.group(1)
+        food_name = unit_match.group(2).strip()
+    else:
+        unit = "个"  # 默认单位
+        food_name = remainder
+        raise ValueError(f"无法解析单位: {item_text}，请指定单位。")
+
+    # 确保食品名称不为空
+    if not food_name:
+        raise ValueError(f"无法解析食品名称: {item_text}")
+
+    return quantity, unit, food_name
 
 
 def parse_multiple_food(input_text):
@@ -81,6 +79,7 @@ def parse_multiple_food(input_text):
     print(f"解析的食物项: {food_items}")  # 调试输出
 
     if not food_items:
+
         return None
 
     for item in food_items:
@@ -98,4 +97,4 @@ if __name__ == "__main__":
     # test_input = "10坨鸡块，2杯米饭，半份沙拉"
     # result = parse_multiple_food(test_input)
     # print(result)  # 输出解析结果
-    print(parse_food_item("两个巨无霸"))  # 测试单个食品项解析
+    print(parse_food_item("一根白面包"))  # 测试单个食品项解析
