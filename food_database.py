@@ -197,6 +197,20 @@ class LocalFoodDatabase:
         self.conn.commit()
         self.close()
 
+    def remove_duplicate_food_items(self):
+        """删除重复的食物项"""
+        self.cursor.execute(
+            """
+            DELETE FROM food_items
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM food_items
+                GROUP BY notion_id
+            )
+            """
+        )
+        self.conn.commit()
+
     def sync_database(self):
         """向notion同步数据库"""
         from notion import Notion

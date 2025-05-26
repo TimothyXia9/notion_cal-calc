@@ -25,6 +25,21 @@ class Notion:
         self.main_database_id = NOTION_MAIN_DATABASE_ID
         self.food_database_id = NOTION_FOOD_DATABASE_ID
 
+    def get_all_entries(self):
+        url = f"https://api.notion.com/v1/databases/{self.main_database_id}/query"
+
+        payload = {
+            "filter": {
+                "property": "食物描述",
+                "rich_text": {
+                    "is_not_empty": True,
+                },
+            }
+        }
+        response = requests.post(url, headers=notion_headers, json=payload)
+        if response.status_code == 200:
+            return response.json()["results"]
+
     def get_pending_entries(self):
         """从Notion获取所有非'已完成'状态的条目"""
         url = f"https://api.notion.com/v1/databases/{self.main_database_id}/query"
@@ -130,7 +145,9 @@ class Notion:
             response = requests.post(url, headers=notion_headers, json=payload)
 
             if response.status_code == 200:
-                print(f"创建食物条目成功: {food_item.name,response.json()["id"]}")
+                print(
+                    f"创建食物条目成功: {food_item.name}, {response.json().get('id')}"
+                )
                 return response.json()["id"]
             else:
                 print(f"创建食物条目失败: {response.status_code}")

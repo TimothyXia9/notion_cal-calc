@@ -9,6 +9,7 @@ class FoodAgent:
         self.local_db = LocalFoodDatabase()
         self.notion = Notion()
         self.llm_service = LLMService()
+        self.local_db.remove_duplicate_food_items()
 
     def add_to_db(self, food_item):
         try:
@@ -34,7 +35,7 @@ class FoodAgent:
             try:
                 food_items = self.llm_service.get_name_quantity_unit(food_description)
             except:
-                return [(food_description, 1, "个")]
+                return [(food_description, 1, "个")], [None]
         print(f"解析食物描述: {food_items}")
         food_results = []
         quantities = []

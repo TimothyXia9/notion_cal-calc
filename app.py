@@ -1,5 +1,10 @@
 from database_update import FoodAgent
 from time import time, sleep
+import logging
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def main():
@@ -31,8 +36,22 @@ def main():
 if __name__ == "__main__":
     while True:
         try:
+            logging.info(time())
             main()
         except Exception as e:
-            print(f"发生错误: {e}")
+            logging.error(f"发生错误: {e}")
+
         finally:
             sleep(10)
+
+    # food_agent = FoodAgent()
+    # all_entry_list = food_agent.notion.get_all_entries()
+    # all_entry = [
+    #     (
+    #         entry["properties"]["食物描述"]["rich_text"][0]["text"]["content"],
+    #         entry["properties"]["更新时间"]["last_edited_time"],
+    #     )
+    #     for entry in all_entry_list
+    # ]
+    # print(all_entry)
+    main()
